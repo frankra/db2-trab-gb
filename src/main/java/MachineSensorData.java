@@ -1,6 +1,7 @@
 package main.java;
 
 import java.io.IOException;
+import java.util.Calendar;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -15,19 +16,24 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
-public class MachineSensorData{
-    /**
-     * Mapper class
-     */
+public class MachineSensorData {
+	/**
+	 * Mapper class
+	 */
 	public static class MachineSensorDataMap extends Mapper<LongWritable, Text, Text, IntWritable> {
 		private static final IntWritable one = new IntWritable(1);
 		private Text sensorData = new Text();
 
 		public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
 			String line = value.toString();
-			String[] data = line.split("\\R+"); //Split end of line
-			for (String w: data) {
-				sensorData.set(w);
+			String[] lineData = line.split(" ");
+
+			Calendar cal = Calendar.getInstance();
+			cal.setTimeInMillis(Long.parseLong(lineData[3]));
+			int year = cal.get(Calendar.YEAR);
+
+			if (year == 2015) { // Fetch data for year 2015
+				sensorData.set(line);
 				context.write(sensorData, one);
 			}
 		}
@@ -39,18 +45,18 @@ public class MachineSensorData{
 	public static class MachineSensorDataReduce extends Reducer<Text, IntWritable, Text, IntWritable> {
 		private IntWritable sumTotal = new IntWritable();
 
-		public void reduce(Text key, Iterable<IntWritable> values, Context context)  throws IOException, InterruptedException {
+		public void reduce(Text key, Iterable<IntWritable> values, Context context)
+				throws IOException, InterruptedException {
 			int sum = 0;
 			for (IntWritable value : values) {
 				sum += value.get();
 			}
 			sumTotal.set(sum);
-			context.write(key,  sumTotal);
+			context.write(key, sumTotal);
 		}
 	}
 
-
-	public static void main( String[] args ) throws IOException, ClassNotFoundException, InterruptedException {
+	public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 		// setup job configuration
 		Configuration conf = new Configuration();
 		Job job = new Job(conf, "SensorDataCfg");
@@ -73,6 +79,6 @@ public class MachineSensorData{
 
 		job.waitForCompletion(true);
 
-        System.out.println( "Done!" );
-    }
+		System.out.println("Done!");
+	}
 }
